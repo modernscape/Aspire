@@ -1,10 +1,3 @@
-//
-//  ArrowView.swift
-//  Aspire
-//
-//  Created by forest on 2026/11/12.
-//
-
 import SwiftUI
 
 struct ArrowView: View {
@@ -65,6 +58,8 @@ struct ArrowView: View {
             
             context.fill(headPath, with: .color(.secondary.opacity(0.9)))
         }
+        // ★ここが重要：描画領域を画面全体に広げることで、どれだけ離れても矢印が切れません
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false) // 矢印がタップやドラッグを邪魔しないようにする
     }
 }

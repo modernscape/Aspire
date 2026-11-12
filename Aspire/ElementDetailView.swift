@@ -2,7 +2,6 @@ import SwiftUI
 import SwiftData
 import UIKit
 
-
 struct ElementDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -10,13 +9,20 @@ struct ElementDetailView: View {
     @Bindable var element: ElementItem
     @Query(sort: \ElementItem.title) private var allElements: [ElementItem]
     
+    // リスト下部から新しい条件を作って追加するためのコールバック
+    var onCreateAndLinkNew: (() -> Void)? = nil
+    
     @State private var showDeleteAlert = false
     
     private var selectableFactors: [ElementItem] {
         allElements.filter { candidate in
-            element.factors.contains(where: { $0.id == candidate.id }) ||
-            element.canAddAsFactor(candidate)
+            candidate.id != element.id && (
+                element.factors.contains(where: { $0.id == candidate.id }) ||
+                element.canAddAsFactor(candidate)
+            )
         }
+        // impactの大きい順（降順）にソート
+        .sorted { $0.impact > $1.impact }
     }
     
     var body: some View {
@@ -26,116 +32,94 @@ struct ElementDetailView: View {
                 Section() {
                     TextField("タイトル", text: $element.title, axis: .vertical)
                         .lineLimit(1...4)
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("度合い（インパクト）")
-                            Spacer()
-                            Text("\(element.impact)")
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
-                        }
-                        Slider(
-                            value: Binding(
-                                get: { Double(element.impact) },
-                                set: { element.impact = Int($0.rounded()) }
-                            ),
-                            in: 1...200,
-                            step: 1
-                        )
-                    }
-                    .padding(.vertical, 4)
+                        .clearButton(text: $element.title)
                     
                     // 快楽／不快 (Segmented Control)
-                    // 例：快楽・不快の切り替え
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("快楽・不快")
+                        Text("Positive／Negative")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         
                         UIKitSegmentedControl(
-                            items: ["＋（快楽・希求）", "ー （コスト・労力・不快）"],
+                            items: ["Positive", "Negative"],
                             selection: Binding(
                                 get: { element.isPleasure ? 0 : 1 },
                                 set: { element.isPleasure = ($0 == 0) }
                             ),
                             selectedColor: UIColor(named: element.isPleasure ? "Pleasuse Color" : "Unpleasant Color") ?? .systemBlue
                         )
-                        .frame(height: 32)
+                        .frame(height: 36) // 文字が2行になる場合を考慮して少し高さを調整してもOKです
+                        
+                        // 左右それぞれの説明テキスト
+                        HStack(alignment: .top, spacing: 12) {
+                            // 左側（プラス）の説明
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("快楽・夢・楽しみ・持ってるもの・能力・欲しいもの・目標")
+                                Text("幸せなこと・好きなこと")
+                            }
+                            .foregroundColor(Color("Pleasuse Color" ))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            
+                            // 右側（マイナス）の説明
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("労力・コスト・ストレス・不快なこと・持ってないもの・悩み・いらないもの・嫌いなもの")
+//                                Text("持ってないもの・悩み・いらないもの")
+                            }
+                            .foregroundColor(Color("Unpleasant Color" ))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.top, 2)
                     }
                     .padding(.vertical, 4)
-//                    VStack(alignment: .leading, spacing: 6) {
-//                        Text("快楽・不快")
-//                            .font(.caption)
-//                            .foregroundStyle(.secondary)
-//                        
-//                        HStack(spacing: 0) {
-//                            // 「快」ボタン
-//                            Button {
-//                                withAnimation(.snappy(duration: 0.2)) {
-//                                    element.isPleasure = true
-//                                }
-//                            } label: {
-//                                Text("快楽")
-//                                    .font(.subheadline.bold())
-//                                    .frame(maxWidth: .infinity)
-//                                    .padding(.vertical, 8)
-//                                    .background(element.isPleasure ? Color("Pleasuse Color") : Color.clear)
-//                                    .foregroundStyle(element.isPleasure ? .white : .primary)
-//                            }
-//                            
-//                            Divider().frame(height: 20)
-//                            
-//                            // 「不快」ボタン
-//                            Button {
-//                                withAnimation(.snappy(duration: 0.2)) {
-//                                    element.isPleasure = false
-//                                }
-//                            } label: {
-//                                Text("不快")
-//                                    .font(.subheadline.bold())
-//                                    .frame(maxWidth: .infinity)
-//                                    .padding(.vertical, 8)
-//                                    .background(!element.isPleasure ? Color("Unpleasant Color") : Color.clear)
-//                                    .foregroundStyle(!element.isPleasure ? .white : .primary)
-//                            }
-//                        }
-//                        .background(Color(.systemGray6))
-//                        .clipShape(RoundedRectangle(cornerRadius: 8))
-//                        .overlay(
-//                            RoundedRectangle(cornerRadius: 8)
-//                                .stroke(Color(.systemGray4), lineWidth: 0.5)
-//                        )
-//                    }
-//                    Picker("快楽・不快", selection: $element.isPleasure) {
-//                        Text("快楽").tag(true)
-//                        Text("不快").tag(false)
-//                    }
-//                    .pickerStyle(.segmented)
-//                    .padding(.vertical, 4)
-//                    
-                    // 希求する（夢） / 今はその状態でない (Segmented Control)
-//                    Picker("状態", selection: $element.isDream) {
-//                        Text("今はその状態でない").tag(false)
-//                        Text("それを選択する").tag(true)
-//                    }
-//                    .pickerStyle(.segmented)
-//                    .padding(.vertical, 4)
                     
-         
-                    // 状態（今はその状態でない / それを選択する）の切り替え
+                    // 度合い（スライダー5刻み ＆ 数値直接入力 ＆ 比例反映）
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("度合い・大きさ")
+                            Spacer()
+                            // 数値を直接入力できるフィールド
+                            TextField("値", value: $element.impact, formatter: NumberFormatter())
+                                .keyboardType(.numberPad)
+                                .monospacedDigit()
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 60)
+                                .padding(4)
+                                .background(Color(.systemGray6))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                        
+                        Slider(
+                            value: Binding(
+                                get: { Double(element.impact) },
+                                set: { newValue in
+                                    // 5刻みに丸める（範囲は5〜200）
+                                    let rounded = Int(round(newValue / 5.0) * 5.0)
+                                    element.impact = max(5, min(500, rounded))
+                                }
+                            ),
+                            in: 5...500, // 5からスタート
+                            step: 5
+                        )
+                    }
+                    .padding(.vertical, 4)
+                    
+                    // 状態（現状 / 未来）の切り替え
                     VStack(alignment: .leading, spacing: 6) {
                         Text("状態")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         
                         UIKitSegmentedControl(
-                            items: ["今はその状態でない", "それを選択する"],
+                            items: ["現状", "未来（それを選択する）"],
                             selection: Binding(
                                 get: { element.isDream ? 1 : 0 },
                                 set: { element.isDream = ($0 == 1) }
                             ),
-                            // isDreamがfalse（左）なら systemGray、true（右）なら "Active Color" を使用
                             selectedColor: element.isDream
                             ? (UIColor(named: "Active Color") ?? .systemBlue)
                             : .systemGray
@@ -145,11 +129,11 @@ struct ElementDetailView: View {
                     .padding(.vertical, 4)
                     
                     // 「この条件をやめる」トグル
-                    Toggle("これをやめる・破棄", isOn: $element.stop)
+                    Toggle("やめる・やめたい・やらない", isOn: $element.stop)
                         .tint(.red)
                 }
                 
-                // Factors（原因となる条件の複数選択）
+                // Factors（原因となる条件の複数選択 ＋ 最後に＋ボタン）
                 Section {
                     if selectableFactors.isEmpty {
                         Text("選択できる他の条件がありません")
@@ -166,7 +150,7 @@ struct ElementDetailView: View {
                                         .fill(candidate.isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color"))
                                         .frame(width: 14, height: 14)
                                     
-                                    Text(candidate.title)
+                                    Text(candidate.title.isEmpty ? "(無題の条件)" : candidate.title)
                                         .foregroundStyle(.primary)
                                     
                                     Spacer()
@@ -177,6 +161,20 @@ struct ElementDetailView: View {
                                             .fontWeight(.semibold)
                                     }
                                 }
+                            }
+                        }
+                    }
+                    
+                    // リストの最後に新規作成「＋」ボタンを配置
+                    if let onCreateAndLinkNew {
+                        Button {
+                            onCreateAndLinkNew()
+                        } label: {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundStyle(Color.accentColor)
+                                Text("新しい条件")
+                                    .foregroundStyle(Color.accentColor)
                             }
                         }
                     }
@@ -199,7 +197,7 @@ struct ElementDetailView: View {
                     }
                 }
             }
-            .navigationTitle("条件の編集")
+            .navigationTitle("条件の詳細")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -235,22 +233,35 @@ struct ElementDetailView: View {
     }
 }
 
-
+// 便利なTextField用クリアボタン拡張
+extension View {
+    func clearButton(text: Binding<String>) -> some View {
+        HStack {
+            self
+            if !text.wrappedValue.isEmpty {
+                Button {
+                    text.wrappedValue = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
 
 struct UIKitSegmentedControl: UIViewRepresentable {
     var items: [String]
     @Binding var selection: Int
-    var selectedColor: UIColor // 選択時の背景色（アセットの色などを指定可能）
+    var selectedColor: UIColor
     
     func makeUIView(context: Context) -> UISegmentedControl {
         let segmentedControl = UISegmentedControl(items: items)
         segmentedControl.selectedSegmentIndex = selection
         segmentedControl.addTarget(context.coordinator, action: #selector(Coordinator.valueChanged(_:)), for: .valueChanged)
         
-        // 選択時の背景色を設定
         segmentedControl.selectedSegmentTintColor = selectedColor
         
-        // 選択時・非選択時の文字色を設定
         let normalAttributes: [NSAttributedString.Key: Any] = [
             .foregroundColor: UIColor.label,
             .font: UIFont.systemFont(ofSize: 14, weight: .medium)

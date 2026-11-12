@@ -15,6 +15,23 @@ struct ContentView: View {
     private let minScale: CGFloat = 0.3
     private let maxScale: CGFloat = 2.5
     
+    // 指定した座標に新しい要素を作成してすぐ詳細を開く
+    private func addNewElementAt(_ position: CGPoint) {
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        
+        let newElement = ElementItem(
+            title: "",
+            impact: 60,
+            isPleasure: true,
+            isDream: false,
+            stop: false,
+            position: position
+        )
+        modelContext.insert(newElement)
+        editingElement = newElement
+    }
+    
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
@@ -23,6 +40,20 @@ struct ContentView: View {
                         .ignoresSafeArea()
                         .contentShape(Rectangle())
                         .gesture(canvasPanGesture)
+                        .simultaneousGesture(
+                            SpatialTapGesture(count: 2)
+                                .onEnded { value in
+                                    // 1. タップされた画面上の位置
+                                    let screenLocation = value.location
+                                    
+                                    // 2. 現在のパン（オフセット）とズーム（スケール）を考慮して、キャンバス上のワールド座標に変換
+                                    let worldX = (screenLocation.x - canvasOffset.width) / canvasScale
+                                    let worldY = (screenLocation.y - canvasOffset.height) / canvasScale
+                                    
+                                    // 3. その位置に新規作成して編集画面を開く
+                                    addNewElementAt(CGPoint(x: worldX, y: worldY))
+                                }
+                        )
                     
                     ZStack {
                         // 矢印レイヤー
@@ -52,7 +83,6 @@ struct ContentView: View {
                 .simultaneousGesture(canvasZoomGesture)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        // 【変更】押すとすべての要素が画面に収まるように自動フィットするボタン
                         Button {
                             withAnimation(.spring(duration: 0.4)) {
                                 fitToAllElements(in: geometry.size)
@@ -65,7 +95,7 @@ struct ContentView: View {
                     
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
-                            addNewElement(in: geometry.size)
+                            addNewElementAndEdit(in: geometry.size)
                         } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.title2)
@@ -73,15 +103,27 @@ struct ContentView: View {
                     }
                 }
                 .sheet(item: $editingElement) { element in
-                    ElementDetailView(element: element)
+                    ElementDetailView(element: element) {
+                        // リスト下部の「＋新しい条件を作成して追加」が押された時の処理
+                        let newFactor = ElementItem(
+                            title: "",
+                            impact: 50,
+                            isPleasure: true,
+                            isDream: false,
+                            stop: false,
+                            position: CGPoint(x: element.position.x + 60, y: element.position.y + 60)
+                        )
+                        modelContext.insert(newFactor)
+                        element.factors.append(newFactor)
+                    }
                 }
             }
-            .navigationTitle("現状と夢の条件を整理する")
+            .navigationTitle("あなたをつくる要素")
             .navigationBarTitleDisplayMode(.inline)
         }
     }
     
-    // MARK: - 全体フィット計算ロジック（修正版）
+    // MARK: - 全体フィット計算ロジック
     private func fitToAllElements(in viewSize: CGSize) {
         guard !elements.isEmpty else {
             canvasScale = 1.0
@@ -91,7 +133,6 @@ struct ContentView: View {
             return
         }
         
-        // 1. すべての要素を包み込むバウンディングボックスを算出
         var minX = CGFloat.infinity
         var maxX = -CGFloat.infinity
         var minY = CGFloat.infinity
@@ -110,7 +151,6 @@ struct ContentView: View {
             maxY = max(maxY, bottom)
         }
         
-        // 周囲の余白を少し広めに確保 (80pt)
         let padding: CGFloat = 80
         minX -= padding
         maxX += padding
@@ -120,28 +160,22 @@ struct ContentView: View {
         let contentWidth = max(maxX - minX, 100)
         let contentHeight = max(maxY - minY, 100)
         
-        // 2. 画面サイズ（余白考慮）に収まるようなスケールを計算
         let scaleX = viewSize.width / contentWidth
         let scaleY = viewSize.height / contentHeight
         let targetScale = min(max(min(scaleX, scaleY), minScale), maxScale)
         
-        // 3. コンテンツの本当の中心座標
         let contentCenterX = (minX + maxX) / 2.0
         let contentCenterY = (minY + maxY) / 2.0
         
-        // 4. 画面の中心に対してオフセットを計算
-        // ※ GeometryReaderの中での中央を基準にするため、位置のずれを補正
         let targetOffsetX = (viewSize.width / 2.0) - (contentCenterX * targetScale)
         let targetOffsetY = (viewSize.height / 2.0) - (contentCenterY * targetScale)
         
-        // 5. 反映
         canvasScale = targetScale
         lastCanvasScale = targetScale
         canvasOffset = CGSize(width: targetOffsetX, height: targetOffsetY)
         lastCanvasOffset = canvasOffset
     }
     
-    // MARK: - ジェスチャー定義
     private var canvasPanGesture: some Gesture {
         DragGesture()
             .onChanged { value in
@@ -166,7 +200,8 @@ struct ContentView: View {
             }
     }
     
-    private func addNewElement(in viewSize: CGSize) {
+    // 新規作成してすぐ詳細を開く
+    private func addNewElementAndEdit(in viewSize: CGSize) {
         let centerX = (viewSize.width / 2.0 - canvasOffset.width) / canvasScale
         let centerY = (viewSize.height / 2.0 - canvasOffset.height) / canvasScale
         var targetPos = CGPoint(x: centerX, y: centerY)
@@ -179,7 +214,7 @@ struct ContentView: View {
         }
         
         let newElement = ElementItem(
-            title: "条件",
+            title: "",
             impact: 60,
             isPleasure: true,
             isDream: false,
@@ -187,8 +222,10 @@ struct ContentView: View {
             position: targetPos
         )
         modelContext.insert(newElement)
+        editingElement = newElement
     }
 }
+
 
 struct ElementNodeView: View {
     @Bindable var element: ElementItem
@@ -211,13 +248,17 @@ struct ElementNodeView: View {
             
             // 外枠（1重目）
             Circle()
-                .strokeBorder(themeColor, lineWidth: 2.5)
+                .strokeBorder(themeColor, lineWidth: element.isDream  ? 4 : 2)
             
-            // isDreamがtrueの場合は2重ライン
+            // isDreamがtrueの場合は2重の点線ライン
             if element.isDream {
                 Circle()
-                    .strokeBorder(themeColor, lineWidth: 2)
-                    .padding(6)
+                    .strokeBorder(
+                        themeColor,
+                        style: StrokeStyle(lineWidth: 2, dash: [15, 3]) // ← ここで点線を指定
+                    )
+                    .opacity(0.8)
+                    .padding(8)
             }
             
             // タイトル
@@ -229,12 +270,22 @@ struct ElementNodeView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(element.isDream ? 16 : 12)
             
-            // stopがtrueのとき、円形全体を覆う大きな「×」を表示
+            // stopがtrueのとき、細長い長方形が2つ交差した「×」を表示
             if element.stop {
-                Image(systemName: "xmark")
-                    .font(.system(size: element.diameter * 1.65))
-                    .foregroundStyle(Color.red.opacity(0.5))
-                    .allowsHitTesting(false)
+                ZStack {
+                    // 1つ目の長方形（右肩下がり）
+                    Rectangle()
+                        .frame(width: element.diameter * 1.3, height: 6) // 太さはここで調整
+                        .rotationEffect(.degrees(45))
+                        .foregroundStyle(Color("Cross Color"))
+                    
+                    // 2つ目の長方形（右肩上がり）
+                    Rectangle()
+                        .frame(width: element.diameter * 1.3, height: 6)
+                        .rotationEffect(.degrees(-45))
+                        .foregroundStyle(Color("Cross Color"))
+                }
+                .allowsHitTesting(false)
             }
             
             // 【追加】ダブルタップされた時にラップする薄いブルーの演出用レイヤー
