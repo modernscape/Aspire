@@ -15,6 +15,9 @@ struct ContentView: View {
     private let minScale: CGFloat = 0.3
     private let maxScale: CGFloat = 2.5
     
+    @State private var selectedElement: ElementItem? = nil
+    @State private var pinchStartImpact: Int = 60 // ピンチ操作用の一時保存
+        
     // 指定した座標に新しい要素を作成してすぐ詳細を開く
     private func addNewElementAt(_ position: CGPoint) {
         let generator = UIImpactFeedbackGenerator(style: .medium)
@@ -32,14 +35,57 @@ struct ContentView: View {
         editingElement = newElement
     }
     
+    private func duplicateElement(_ item: ElementItem) {
+        let duplicated = ElementItem(
+            title: item.title + " (コピー)",
+            impact: item.impact,
+            isPleasure: item.isPleasure,
+            isDream: item.isDream,
+            stop: item.stop,
+            position: CGPoint(x: item.position.x + 30, y: item.position.y + 30) // 少しずらして配置
+        )
+        modelContext.insert(duplicated)
+        selectedElement = duplicated
+    }
+    
+
+    
+    
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
+                
+                // ▼ ここにそのまま記述します
+//                let doubleTap = SpatialTapGesture(count: 2)
+//                    .onEnded { value in
+//                        let screenLocation = value.location
+//                        let worldX = (screenLocation.x - canvasOffset.width) / canvasScale
+//                        let worldY = (screenLocation.y - canvasOffset.height) / canvasScale
+//                        
+//                        addNewElementAt(CGPoint(x: worldX, y: worldY))
+//                    }
+//                
+//                let singleTap = SpatialTapGesture(count: 1)
+//                    .onEnded { value in
+//                        selectedElement = nil
+//                    }
+//                
+//                let tapGesture = doubleTap.exclusively(before: singleTap)
+                // ▲ ここまで
+                
                 ZStack {
                     Color(.systemGroupedBackground)
                         .ignoresSafeArea()
                         .contentShape(Rectangle())
                         .gesture(canvasPanGesture)
+//                        .simultaneousGesture(tapGesture) // 先ほど定義したダブル/シングルの複合タップ
+                        .simultaneousGesture(
+                            SpatialTapGesture(count: 1) // シングルタップで選択解除
+                                .onEnded { value in
+                                    // ノード以外の空白をタップした時だけ選択解除したい場合など
+                                    selectedElement = nil
+                                }
+                        )
                         .simultaneousGesture(
                             SpatialTapGesture(count: 2)
                                 .onEnded { value in
@@ -70,15 +116,87 @@ struct ContentView: View {
                         
                         // 条件ノードレイヤー
                         ForEach(elements) { element in
-                            ElementNodeView(element: element) {
-                                let generator = UIImpactFeedbackGenerator(style: .medium)
-                                generator.impactOccurred()
-                                editingElement = element
-                            }
+                            ElementNodeView(
+                                element: element,
+                                isSelected: (element == selectedElement),
+                                onTap: {
+                                    let generator = UIImpactFeedbackGenerator(style: .light)
+                                    generator.impactOccurred()
+                                    // 1回タップ：選択状態にする（下端メニューが出る）
+                                    selectedElement = element
+                                },
+                                onDoubleTap: {
+                                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                                    generator.impactOccurred()
+                                    // ダブルタップ：直接編集画面を開く
+                                    editingElement = element
+                                }
+                            )
                         }
                     }
                     .scaleEffect(canvasScale)
                     .offset(canvasOffset)
+                }
+                .overlay(alignment: .bottom) {
+                    // 3. 選択時のみ画面下端に現れるメニューバー
+                    if let selected = selectedElement {
+                        HStack(spacing: 20) {
+                            // ① ポジ・ネガ トグル
+                            Button {
+                                selected.isPleasure.toggle()
+                            } label: {
+                                Circle()
+                                    .fill(selected.isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color"))
+                                    .frame(width: 32, height: 32)
+                                    .overlay(Image(systemName: selected.isPleasure ? "heart.fill" : "cloud.rain.fill").font(.system(size: 12)).foregroundStyle(.white))
+                            }
+                            
+                            // ② 子条件を選択 (モーダルやピッカーを開くなど)
+                            Button {
+                                // TODO: 子条件選択画面のシートを開く処理など
+                            } label: {
+                                Image(systemName: "arrow.triangle.branch")
+                            }
+                            
+                            // ③ stop トグル
+                            Button {
+                                selected.stop.toggle()
+                            } label: {
+                                Image(systemName: selected.stop ? "xmark.circle.fill" : "circle")
+                            }
+                            
+                            // ④ 編集画面へ
+                            Button {
+                                editingElement = selected
+                            } label: {
+                                Image(systemName: "pencil")
+                            }
+                            
+                            // ⑤ 複製
+                            Button {
+                                duplicateElement(selected)
+                            } label: {
+                                Image(systemName: "plus.square.on.square")
+                            }
+                            
+                            // ⑥ 削除
+                            Button(role: .destructive) {
+                                modelContext.delete(selected)
+                                selectedElement = nil
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                        }
+                        .font(.system(size: 20))
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 14)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+                        .padding(.bottom, 30)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedElement)
+                    }
                 }
                 .simultaneousGesture(canvasZoomGesture)
                 .toolbar {
@@ -226,107 +344,3 @@ struct ContentView: View {
     }
 }
 
-
-struct ElementNodeView: View {
-    @Bindable var element: ElementItem
-    var onDoubleTap: () -> Void
-    
-    @State private var dragStartPosition: CGPoint?
-    // ダブルタップした瞬間に光らせるための状態
-    @State private var isSelectedEffect = false
-    
-    private var themeColor: Color {
-        element.isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color")
-    }
-    
-    var body: some View {
-        ZStack {
-            // 背景色
-            Circle()
-                .fill(Color("Element bgColor"))
-                .shadow(color: .black.opacity(0.08), radius: 5, x: 0, y: 2)
-            
-            // 外枠（1重目）
-            Circle()
-                .strokeBorder(themeColor, lineWidth: element.isDream  ? 4 : 2)
-            
-            // isDreamがtrueの場合は2重の点線ライン
-            if element.isDream {
-                Circle()
-                    .strokeBorder(
-                        themeColor,
-                        style: StrokeStyle(lineWidth: 2, dash: [15, 3]) // ← ここで点線を指定
-                    )
-                    .opacity(0.8)
-                    .padding(8)
-            }
-            
-            // タイトル
-            Text(element.title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(themeColor)
-                .multilineTextAlignment(.center)
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(element.isDream ? 16 : 12)
-            
-            // stopがtrueのとき、細長い長方形が2つ交差した「×」を表示
-            if element.stop {
-                ZStack {
-                    // 1つ目の長方形（右肩下がり）
-                    Rectangle()
-                        .frame(width: element.diameter * 1.23, height: 6) // 太さはここで調整
-                        .rotationEffect(.degrees(45))
-                        .foregroundStyle(Color("Cross Color"))
-                    
-                    // 2つ目の長方形（右肩上がり）
-                    Rectangle()
-                        .frame(width: element.diameter * 1.23, height: 6)
-                        .rotationEffect(.degrees(-45))
-                        .foregroundStyle(Color("Cross Color"))
-                }
-                .allowsHitTesting(false)
-            }
-            
-            // 【追加】ダブルタップされた時にラップする薄いブルーの演出用レイヤー
-            Circle()
-                .fill(Color.blue.opacity(isSelectedEffect ? 0.25 : 0.0))
-                .scaleEffect(isSelectedEffect ? 1.05 : 0.95)
-                .animation(.easeInOut(duration: 0.15), value: isSelectedEffect)
-                .allowsHitTesting(false)
-        }
-        .frame(width: element.diameter, height: element.diameter)
-        .position(element.position)
-        // ダブルタップで詳細画面表示 ＋ 選択エフェクト
-        .onTapGesture(count: 2) {
-            // 選択エフェクトをパッと光らせてからアクションを実行
-            isSelectedEffect = true
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
-            
-            // 少しだけエフェクトを見せてからモーダルを開く
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                isSelectedEffect = false
-                onDoubleTap()
-            }
-        }
-        // ドラッグで移動
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    if dragStartPosition == nil {
-                        dragStartPosition = element.position
-                    }
-                    if let start = dragStartPosition {
-                        element.position = CGPoint(
-                            x: start.x + value.translation.width,
-                            y: start.y + value.translation.height
-                        )
-                    }
-                }
-                .onEnded { _ in
-                    dragStartPosition = nil
-                }
-        )
-    }
-}

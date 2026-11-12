@@ -140,26 +140,30 @@ struct ElementDetailView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(selectableFactors) { candidate in
-                            let isSelected = element.factors.contains(where: { $0.id == candidate.id })
+//                            let isSelected = element.factors.contains(where: { $0.id == candidate.id })
                             
                             Button {
                                 toggleFactor(candidate)
                             } label: {
-                                HStack {
-                                    Circle()
-                                        .fill(candidate.isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color"))
-                                        .frame(width: 14, height: 14)
+                                HStack(spacing: 12) {
+                                    // 左端の色丸 ＋ 小さな×
+                                    ZStack {
+                                        Circle()
+                                            .fill(candidate.isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color"))
+                                            .frame(width: 12, height: 12)
+                                        
+//                                        if candidate.stop {
+//                                            Image(systemName: "xmark")
+//                                                .font(.system(size: 17))
+//                                                .foregroundStyle(.white).opacity(0.7)
+//                                        }
+                                    }
                                     
-                                    Text(candidate.title.isEmpty ? "(無題の条件)" : candidate.title)
-                                        .foregroundStyle(.primary)
+                                    // タイトル（stopがtrueのときに取り消し線を引く）
+                                    Text(candidate.title)
+                                        .strikethrough(candidate.stop)
                                     
                                     Spacer()
-                                    
-                                    if isSelected {
-                                        Image(systemName: "checkmark")
-                                            .foregroundStyle(.tint)
-                                            .fontWeight(.semibold)
-                                    }
                                 }
                             }
                         }
