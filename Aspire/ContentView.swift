@@ -275,13 +275,13 @@ struct ElementNodeView: View {
                 ZStack {
                     // 1つ目の長方形（右肩下がり）
                     Rectangle()
-                        .frame(width: element.diameter * 1.3, height: 6) // 太さはここで調整
+                        .frame(width: element.diameter * 1.23, height: 6) // 太さはここで調整
                         .rotationEffect(.degrees(45))
                         .foregroundStyle(Color("Cross Color"))
                     
                     // 2つ目の長方形（右肩上がり）
                     Rectangle()
-                        .frame(width: element.diameter * 1.3, height: 6)
+                        .frame(width: element.diameter * 1.23, height: 6)
                         .rotationEffect(.degrees(-45))
                         .foregroundStyle(Color("Cross Color"))
                 }
