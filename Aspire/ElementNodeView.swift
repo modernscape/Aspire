@@ -30,16 +30,23 @@ struct ElementNodeView: View {
     // ピンチ操作用の一時変数
     @State private var baseImpact: Int = 60
     
-    private var themeColor: Color {
-        element.isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color")
+//    private var themeColor: Color {
+//        element.isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color")
+//    }
+    
+    // ★ typeに応じた背景色を返す計算プロパティ
+    private var nodeBackgroundColor: Color {
+        return element.isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color")
     }
     
     var body: some View {
         ZStack {
             // 背景色
             Circle()
-                .fill(element.isDream ? Color("Element bgColor") : themeColor.opacity(0.12))
+//                .fill(element.isDream ? Color("Element bgColor") : themeColor.opacity(0.12))
+                .fill(nodeBackgroundColor.opacity(element.isCurrent ? 0.23 : 0.05))
                 .shadow(color: .black.opacity(0.08), radius: 5, x: 0, y: 2)
+            
                 .overlay(
                     // ★ 選択時に薄い青色を被せる
                     Circle().fill(Color.blue.opacity(isSelected ? 0.25 : 0.0))
@@ -48,16 +55,26 @@ struct ElementNodeView: View {
                 .overlay(
                     Circle().stroke(Color.blue, lineWidth: isSelected ? 3 : 0)
                 )
+                .overlay(
+                    // ★ element.isRational が true のときだけテクスチャを重ねる
+                    Group {
+                        if element.isRational {
+                            Image("node_texture") // モノクロテクスチャ
+                                .resizable()
+                                .renderingMode(.template)
+                                .foregroundStyle(Color("Rational Color"))
+                                .opacity(0.7)
+                                .clipShape(Circle())
+                        }
+                    }
+                )
                 .shadow(color: .black.opacity(0.08), radius: 5, x: 0, y: 2)
             
-            if element.isDream {
-                // 外枠（1重目）
+            if element.isCurrent {
+                
                 Circle()
-                    .strokeBorder(
-                        themeColor,
-                        style: StrokeStyle(lineWidth: 4, dash: [20, 5]) // ← ここで点線を指定
-                    )
-            
+                    .strokeBorder(nodeBackgroundColor, lineWidth: element.isCurrent  ? 4 : 2)
+          
                 
 //                Circle()
 //                    .strokeBorder(
@@ -71,9 +88,14 @@ struct ElementNodeView: View {
                 
                 
             } else {
-                // 外枠（1重目）
+ 
+                
                 Circle()
-                    .strokeBorder(themeColor, lineWidth: element.isDream  ? 4 : 2)
+                    .strokeBorder(
+                        nodeBackgroundColor,
+                        style: StrokeStyle(lineWidth: 6, dash: [20, 5]) // ← ここで点線を指定
+                    )
+                
                 
             }
 
@@ -92,7 +114,7 @@ struct ElementNodeView: View {
             // タイトル
             Text(element.title)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(themeColor)
+                .foregroundStyle(nodeBackgroundColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
@@ -101,7 +123,7 @@ struct ElementNodeView: View {
             // 【追加】円の上部に impact の値を表示
             Text("\(element.impact)")
                 .font(.system(size: 11, weight: .thin, design: .rounded))
-                .foregroundStyle(themeColor.opacity(0.8))
+                .foregroundStyle(nodeBackgroundColor.opacity(0.8))
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(.ultraThinMaterial)
@@ -199,5 +221,6 @@ struct ElementNodeView: View {
                 }
         )
     }
+    
 }
 

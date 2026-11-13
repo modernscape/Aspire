@@ -29,7 +29,8 @@ struct ContentView: View {
             isPleasure: true,
             isDream: false,
             stop: false,
-            position: position
+            position: position,
+            isCurrent: true,
         )
         modelContext.insert(newElement)
         editingElement = newElement

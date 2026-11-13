@@ -43,12 +43,16 @@ struct ElementDetailView: View {
                         UIKitSegmentedControl(
                             items: ["Positive", "Negative"],
                             selection: Binding(
-                                get: { element.isPleasure ? 0 : 1 },
-                                set: { element.isPleasure = ($0 == 0) }
+                                get: { element.isPleasure ? 0 : 1 }, // Boolをインデックス(0 or 1)に変換
+                                set: { element.isPleasure = ($0 == 0) } // インデックスをBoolに変換
                             ),
-                            selectedColor: UIColor(named: element.isPleasure ? "Pleasuse Color" : "Unpleasant Color") ?? .systemBlue
+                            selectedColor: {
+                                // isPleasure に応じた UIColor を返す
+                                let colorName = element.isPleasure ? "Pleasuse Color" : "Unpleasant Color"
+                                return UIColor(named: colorName) ?? .systemBlue
+                            }()
                         )
-                        .frame(height: 36) // 文字が2行になる場合を考慮して少し高さを調整してもOKです
+                        .frame(height: 36)
                         
                         // 左右それぞれの説明テキスト
                         HStack(alignment: .top, spacing: 12) {
@@ -108,6 +112,14 @@ struct ElementDetailView: View {
                     }
                     .padding(.vertical, 4)
                     
+                    
+                    
+                    //
+                    Toggle("理性的", isOn: $element.isRational)
+                        .tint(Color("Rational Color"))
+                    
+                    
+                    
                     // 状態（現状 / 未来）の切り替え
                     VStack(alignment: .leading, spacing: 6) {
                         Text("状態")
@@ -115,14 +127,14 @@ struct ElementDetailView: View {
                             .foregroundStyle(.secondary)
                         
                         UIKitSegmentedControl(
-                            items: ["現状", "未来（それを選択する）"],
+                            items: ["現状", "未来（まだその状態にない）"],
                             selection: Binding(
-                                get: { element.isDream ? 1 : 0 },
-                                set: { element.isDream = ($0 == 1) }
+                                get: { element.isCurrent ? 0 : 1 },
+                                set: { element.isCurrent = ($0 == 0) }
                             ),
-                            selectedColor: element.isDream
-                            ? (UIColor(named: "Active Color") ?? .systemBlue)
-                            : .systemGray
+                            selectedColor: element.isCurrent
+                            ? .systemGray : (UIColor(named: "Active Color") ?? .systemBlue)
+                            
                         )
                         .frame(height: 32)
                     }

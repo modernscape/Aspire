@@ -1,14 +1,17 @@
 import Foundation
 import CoreGraphics
 import SwiftData
+import SwiftUI
 
 @Model
 final class ElementItem {
     var id: UUID
     var title: String
     var impact: Int
-    var isPleasure: Bool
+    var isPleasure: Bool // Posi Nega
     var isDream: Bool
+    var isCurrent: Bool = true
+    var isRational: Bool = false
     var stop: Bool // 追加：「この条件をやめる」フラグ
     
     // CGPointをSwiftDataで永続化するためのX, Y座標
@@ -21,6 +24,8 @@ final class ElementItem {
     
     // この要素をfactorとして参照している要素（親）の配列
     var dependentElements: [ElementItem]
+    
+//    var type: Int = 0        // 0: 夢, 1: 努力, 2: ストレス // positive rational negative
     
     var position: CGPoint {
         get { CGPoint(x: positionX, y: positionY) }
@@ -47,7 +52,8 @@ final class ElementItem {
         isDream: Bool = false,
         stop: Bool = false,
         position: CGPoint = .zero,
-        factors: [ElementItem] = []
+        factors: [ElementItem] = [],
+        isCurrent: Bool = true,
     ) {
         self.id = UUID()
         self.title = title
@@ -59,6 +65,7 @@ final class ElementItem {
         self.positionY = position.y
         self.factors = factors
         self.dependentElements = []
+        self.isCurrent = isCurrent
     }
     
     /// 循環参照チェック
@@ -78,4 +85,11 @@ final class ElementItem {
         }
         return false
     }
+    
+    // ★ typeに応じた背景色を返す計算プロパティ
+    var nodeBackgroundColor: Color {
+        return isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color")
+    }
+    
+  
 }
