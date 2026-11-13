@@ -34,6 +34,12 @@ struct ElementDetailView: View {
                         .lineLimit(1...4)
                         .clearButton(text: $element.title)
                     
+                    //
+                    Toggle("これこそが夢！", isOn: $element.isDream)
+                        .tint(Color("Dream Color"))
+                    
+                    
+                    
                     // 快楽／不快 (Segmented Control)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Positive／Negative")
@@ -119,6 +125,8 @@ struct ElementDetailView: View {
                         .tint(Color("Rational Color"))
                     
                     
+            
+                    
                     
                     // 状態（現状 / 未来）の切り替え
                     VStack(alignment: .leading, spacing: 6) {
@@ -143,6 +151,8 @@ struct ElementDetailView: View {
                     // 「この条件をやめる」トグル
                     Toggle("やめる・やめたい・やらない", isOn: $element.stop)
                         .tint(.red)
+                    
+    
                 }
                 
                 // Factors（原因となる条件の複数選択 ＋ 最後に＋ボタン）

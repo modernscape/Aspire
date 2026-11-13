@@ -39,8 +39,37 @@ struct ElementNodeView: View {
         return element.isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color")
     }
     
+    enum AnimationPhase: CaseIterable {
+        case start, middle, end
+        var angle: Angle {
+            switch self {
+            case .start: return .degrees(0)
+            case .middle: return .degrees(180)
+            case .end: return .degrees(360)
+            }
+        }
+    }
+    
     var body: some View {
         ZStack {
+            
+            // 1. 一番後ろに配置する「動くグラデーション円」
+            if element.isDream {
+                Circle()
+                    .fill(
+                        AngularGradient(colors: [.pink, .purple, .blue, .cyan, .pink], center: .center)
+                    )
+//                    .frame(width: 250, height: 250)
+                    .blur(radius: 15)
+                    .phaseAnimator(AnimationPhase.allCases) { content, phase in
+                        content.rotationEffect(phase.angle)
+                    } animation: { _ in
+                            .easeInOut(duration: 4.0)
+                    }
+                    .opacity(0.3)
+                    .clipShape(Circle()) // 全体をきれいな円の形に切り抜く（はみ出しが消える）
+            }
+         
             // 背景色
             Circle()
 //                .fill(element.isDream ? Color("Element bgColor") : themeColor.opacity(0.12))
@@ -112,7 +141,8 @@ struct ElementNodeView: View {
             
             // タイトル
             Text(element.title)
-                .font(.system(size: element.radius * 0.2, weight: .semibold))
+//                .font(.system(size: element.radius * 0.2, weight: .semibold))
+                .font(.system(size: 30, weight: .semibold))
                 .foregroundStyle(nodeBackgroundColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(nil)
@@ -122,7 +152,7 @@ struct ElementNodeView: View {
             // 【追加】円の上部に impact の値を表示
             Text("\(element.impact)")
                 .font(.system(size: 11, weight: .thin, design: .rounded))
-                .foregroundStyle(nodeBackgroundColor.opacity(0.8))
+                .foregroundStyle(nodeBackgroundColor.opacity(1.0))
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
 //                .background(.ultraThinMaterial)
@@ -130,30 +160,43 @@ struct ElementNodeView: View {
                 .offset(y: -(element.diameter / 2) + 14) // 円の上端付近に配置
                 .allowsHitTesting(false)
             
-            // stopがtrueのとき、細長い長方形が2つ交差した「×」を表示
-            if element.stop {
-                ZStack {
-                    // 1つ目の長方形（右肩下がり）
-                    Rectangle()
-                        .frame(width: element.diameter * 1.23, height: 6) // 太さはここで調整
-                        .rotationEffect(.degrees(45))
-                        .foregroundStyle(Color("Cross Color"))
-                    
-                    // 2つ目の長方形（右肩上がり）
-                    Rectangle()
-                        .frame(width: element.diameter * 1.23, height: 6)
-                        .rotationEffect(.degrees(-45))
-                        .foregroundStyle(Color("Cross Color"))
-                }
-                .allowsHitTesting(false)
-            }
             
+       
             // 【追加】ダブルタップされた時にラップする薄いブルーの演出用レイヤー
             Circle()
                 .fill(Color.blue.opacity(isSelectedEffect ? 0.25 : 0.0))
                 .scaleEffect(isSelectedEffect ? 1.05 : 0.95)
                 .animation(.easeInOut(duration: 0.15), value: isSelectedEffect)
                 .allowsHitTesting(false)
+            
+            
+            
+            // stopがtrueのとき、太めの点線2本が交差した「×」を表示
+            if element.stop {
+                ZStack {
+                    // 1つ目の点線バー（右肩下がり：45度回転）
+                    Path { path in
+                        let w = element.diameter * 1.3
+                        // 高さんの中央（y: 3）に水平線を引く
+                        path.move(to: CGPoint(x: 0, y: 3))
+                        path.addLine(to: CGPoint(x: w, y: 3))
+                    }
+                    .stroke(Color("Cross Color"), style: StrokeStyle(lineWidth: 8, lineCap: .square, dash: [22, 15]))
+                    .frame(width: element.diameter * 1.3, height: 8) // ★ ここで領域と中心を固定
+                    .rotationEffect(.degrees(45))
+                    
+                    // 2つ目の点線バー（右肩上がり：-45度回転）
+                    Path { path in
+                        let w = element.diameter * 1.3
+                        path.move(to: CGPoint(x: 0, y: 3))
+                        path.addLine(to: CGPoint(x: w, y: 3))
+                    }
+                    .stroke(Color("Cross Color"), style: StrokeStyle(lineWidth: 8, lineCap: .square, dash: [22, 15]))
+                    .frame(width: element.diameter * 1.3, height: 8) // ★ ここで領域と中心を固定
+                    .rotationEffect(.degrees(-45))
+                }
+                .allowsHitTesting(false)
+            }
         }
         .frame(width: element.diameter, height: element.diameter)
         .position(element.position)
