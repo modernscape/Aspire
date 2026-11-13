@@ -1,0 +1,4 @@
+*.xcuserstate
+# またはパスを指定する場合
+#xcuserdata/
+.DS_Store
