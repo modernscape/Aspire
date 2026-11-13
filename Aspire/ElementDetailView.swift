@@ -152,7 +152,7 @@ struct ElementDetailView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(selectableFactors) { candidate in
-//                            let isSelected = element.factors.contains(where: { $0.id == candidate.id })
+                            let isSelected = element.factors.contains(where: { $0.id == candidate.id })
                             
                             Button {
                                 toggleFactor(candidate)
@@ -176,6 +176,12 @@ struct ElementDetailView: View {
                                         .strikethrough(candidate.stop)
                                     
                                     Spacer()
+                                    
+                                    // ★ 2. 選択されている場合のみ右側にチェックマークを表示
+                                    if isSelected {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(Color.accentColor) // または .blue など
+                                    }
                                 }
                             }
                         }
@@ -216,6 +222,20 @@ struct ElementDetailView: View {
             .navigationTitle("条件の詳細")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // 左上にキャンセルボタンを配置
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") {
+                        // 画面を閉じる処理（例: dismiss()）
+//                        dismiss() // 環境変数 @Environment(\.dismiss) var dismiss が必要です
+                        
+                        // タイトルが空、または新規作成時のものなど、必要に応じて削除
+                        let trimmedTitle = element.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmedTitle.isEmpty {
+                            modelContext.delete(element)
+                        }
+                        dismiss()
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完了") {
                         dismiss()
@@ -249,10 +269,12 @@ struct ElementDetailView: View {
     }
 }
 
+
+
 // 便利なTextField用クリアボタン拡張
 extension View {
     func clearButton(text: Binding<String>) -> some View {
-        HStack {
+        HStack(alignment: .top, spacing: 6) {
             self
             if !text.wrappedValue.isEmpty {
                 Button {
@@ -261,10 +283,12 @@ extension View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                 }
+                .buttonStyle(.plain) // ★ これにより、タップ領域がアイコンだけに限定されます
             }
         }
     }
 }
+
 
 struct UIKitSegmentedControl: UIViewRepresentable {
     var items: [String]

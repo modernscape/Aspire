@@ -56,7 +56,6 @@ struct ElementNodeView: View {
                     Circle().stroke(Color.blue, lineWidth: isSelected ? 3 : 0)
                 )
                 .overlay(
-                    // ★ element.isRational が true のときだけテクスチャを重ねる
                     Group {
                         if element.isRational {
                             Image("node_texture") // モノクロテクスチャ
@@ -113,7 +112,7 @@ struct ElementNodeView: View {
             
             // タイトル
             Text(element.title)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: element.radius * 0.2, weight: .semibold))
                 .foregroundStyle(nodeBackgroundColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(nil)
@@ -126,8 +125,8 @@ struct ElementNodeView: View {
                 .foregroundStyle(nodeBackgroundColor.opacity(0.8))
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(.ultraThinMaterial)
-                .clipShape(Capsule())
+//                .background(.ultraThinMaterial)
+//                .clipShape(Capsule())
                 .offset(y: -(element.diameter / 2) + 14) // 円の上端付近に配置
                 .allowsHitTesting(false)
             

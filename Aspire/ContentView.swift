@@ -235,7 +235,9 @@ struct ContentView: View {
                         modelContext.insert(newFactor)
                         element.factors.append(newFactor)
                     }
+                
                 }
+                
             }
             .navigationTitle("あなたをつくる要素")
             .navigationBarTitleDisplayMode(.inline)
