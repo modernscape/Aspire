@@ -35,7 +35,7 @@ struct ElementDetailView: View {
                         .clearButton(text: $element.title)
                     
                     //
-                    Toggle("これこそが夢！", isOn: $element.isDream)
+                    Toggle("これこそが夢", isOn: $element.isDream)
                         .tint(Color("Dream Color"))
                     
                     
@@ -109,10 +109,10 @@ struct ElementDetailView: View {
                                 set: { newValue in
                                     // 5刻みに丸める（範囲は5〜200）
                                     let rounded = Int(round(newValue / 5.0) * 5.0)
-                                    element.impact = max(5, min(500, rounded))
+                                    element.impact = max(50, min(500, rounded))
                                 }
                             ),
-                            in: 5...500, // 5からスタート
+                            in: 50...500, // 50からスタート
                             step: 5
                         )
                     }
@@ -173,6 +173,16 @@ struct ElementDetailView: View {
                                         Circle()
                                             .fill(candidate.isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color"))
                                             .frame(width: 12, height: 12)
+                                            .padding(4)
+                                        
+                                        if candidate.isRational {
+                                            Circle()
+                                                .strokeBorder(Color("Rational Color"), lineWidth: 3)
+//                                                .fill(Color("Rational Color"))
+                                                .frame(width: 20, height: 20)
+          
+                                            
+                                        }
                                         
 //                                        if candidate.stop {
 //                                            Image(systemName: "xmark")

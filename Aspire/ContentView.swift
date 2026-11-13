@@ -12,8 +12,8 @@ struct ContentView: View {
     
     @State private var editingElement: ElementItem?
     
-    private let minScale: CGFloat = 0.3
-    private let maxScale: CGFloat = 2.5
+    private let minScale: CGFloat = 0.1
+    private let maxScale: CGFloat = 3.0
     
     @State private var selectedElement: ElementItem? = nil
     @State private var pinchStartImpact: Int = 60 // ピンチ操作用の一時保存

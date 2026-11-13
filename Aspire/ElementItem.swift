@@ -36,9 +36,10 @@ final class ElementItem {
     }
     
     var diameter: CGFloat {
-        let clamped = CGFloat(min(max(impact, 1), 500))
-        // 例: 最小60 〜 最大300 にしたい場合（幅は 240）
-        return 60.0 + (clamped - 1.0) * (440.0 / 499.0)
+//        let clamped = CGFloat(min(max(impact, 1), 500))
+//        // 例: 最小60 〜 最大300 にしたい場合（幅は 240）
+//        return (clamped - 1.0) * (440.0 / 499.0)
+        return CGFloat(impact)
     }
     
     var radius: CGFloat {
