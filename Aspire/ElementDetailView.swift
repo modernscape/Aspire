@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import PhotosUI
 
 struct ElementDetailView: View {
     @Environment(\.modelContext) private var modelContext
@@ -8,6 +9,8 @@ struct ElementDetailView: View {
     
     @Bindable var element: ElementItem
     @Query(sort: \ElementItem.title) private var allElements: [ElementItem]
+    
+    @State private var selectedItem: PhotosPickerItem?
     
     // リスト下部から新しい条件を作って追加するためのコールバック
     var onCreateAndLinkNew: (() -> Void)? = nil
@@ -109,10 +112,10 @@ struct ElementDetailView: View {
                                 set: { newValue in
                                     // 5刻みに丸める（範囲は5〜200）
                                     let rounded = Int(round(newValue / 5.0) * 5.0)
-                                    element.impact = max(50, min(500, rounded))
+                                    element.impact = max(100, min(500, rounded))
                                 }
                             ),
-                            in: 50...500, // 50からスタート
+                            in: 100...500, // 50からスタート
                             step: 5
                         )
                     }
@@ -154,6 +157,44 @@ struct ElementDetailView: View {
                     
     
                 }
+                
+
+                PhotosPicker(selection: $selectedItem, matching: .images) {
+                    if let imageData = element.imageData, let uiImage = UIImage(data: imageData) {
+                        // 行の中央に配置するためのHStackとSpacer
+                        HStack {
+                            Spacer()
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFit() // 元画像のアスペクト比を維持して全体を表示
+                                .frame(maxHeight: 220) // 大きめの表示サイズ（必要に応じて調整してください）
+                                .cornerRadius(10) // 四角形（少し角丸にすると綺麗です。直角が良い場合は削除してください）
+                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            Spacer()
+                        }
+                        .padding(.vertical, 6)
+                    } else {
+                        Label("画像を追加", systemImage: "photo.badge.plus")
+                    }
+                }
+                .onChange(of: selectedItem) { _, newItem in
+                    guard let newItem else { return }
+                    Task {
+                        if let data = try? await newItem.loadTransferable(type: Data.self) {
+                            await MainActor.run {
+                                element.imageData = data
+                            }
+                        }
+                    }
+                }
+                
+                if element.imageData != nil {
+                    Button("画像を削除", role: .destructive) {
+                        element.imageData = nil
+                        selectedItem = nil // 選択状態もリセット
+                    }
+                }
+                
                 
                 // Factors（原因となる条件の複数選択 ＋ 最後に＋ボタン）
                 Section {

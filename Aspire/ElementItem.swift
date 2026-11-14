@@ -13,6 +13,7 @@ final class ElementItem {
     var isCurrent: Bool = true
     var isRational: Bool = false
     var stop: Bool // 追加：「この条件をやめる」フラグ
+    var imageData: Data?
     
     // CGPointをSwiftDataで永続化するためのX, Y座標
     var positionX: Double
@@ -35,11 +36,17 @@ final class ElementItem {
         }
     }
     
-    var diameter: CGFloat {
+    var diameter__: CGFloat {
 //        let clamped = CGFloat(min(max(impact, 1), 500))
 //        // 例: 最小60 〜 最大300 にしたい場合（幅は 240）
 //        return (clamped - 1.0) * (440.0 / 499.0)
         return CGFloat(impact)
+    }
+    
+    
+    var diameter: CGFloat {
+        let clamped = min(max(impact, 50), 500)
+        return CGFloat(clamped)
     }
     
     var radius: CGFloat {
@@ -55,6 +62,7 @@ final class ElementItem {
         position: CGPoint = .zero,
         factors: [ElementItem] = [],
         isCurrent: Bool = true,
+        imageData: Data? = nil,
     ) {
         self.id = UUID()
         self.title = title
@@ -67,6 +75,7 @@ final class ElementItem {
         self.factors = factors
         self.dependentElements = []
         self.isCurrent = isCurrent
+        self.imageData = imageData
     }
     
     /// 循環参照チェック

@@ -7,7 +7,7 @@ struct ContentView: View {
     
     @State private var canvasOffset: CGSize = .zero
     @State private var lastCanvasOffset: CGSize = .zero
-    @State private var canvasScale: CGFloat = 1.0
+//    @State private var canvasScale: CGFloat = 1.0
     @State private var lastCanvasScale: CGFloat = 1.0
     
     @State private var editingElement: ElementItem?
@@ -16,7 +16,25 @@ struct ContentView: View {
     private let maxScale: CGFloat = 3.0
     
     @State private var selectedElement: ElementItem? = nil
-    @State private var pinchStartImpact: Int = 60 // ピンチ操作用の一時保存
+    @State private var pinchStartImpact: Int = 100 // ピンチ操作用の一時保存
+
+//     --- 1. AppStorageで永続化（アプリを落としても値が残ります） ---
+    @AppStorage("savedCanvasScale") private var canvasScale: Double = 1.0
+    @AppStorage("savedCanvasOffsetX") private var canvasOffsetX: Double = 0.0
+    @AppStorage("savedCanvasOffsetY") private var canvasOffsetY: Double = 0.0
+    
+//    private var canvasOffset: Binding<CGPoint> {
+//        Binding(
+//            get: { CGPoint(x: canvasOffsetX, y: canvasOffsetY) },
+//            set: { newValue in
+//                canvasOffsetX = newValue.width
+//                canvasOffsetY = newValue.height
+//            }
+//        )
+//    }
+    
+    // 1. ドラッグ開始時の基準位置を保持するStateを追加
+    @State private var baseOffset: CGSize? = nil
         
     // 指定した座標に新しい要素を作成してすぐ詳細を開く
     private func addNewElementAt(_ position: CGPoint) {
@@ -25,7 +43,7 @@ struct ContentView: View {
         
         let newElement = ElementItem(
             title: "",
-            impact: 60,
+            impact: 100,
             isPleasure: true,
             isDream: false,
             stop: false,
@@ -94,8 +112,9 @@ struct ContentView: View {
                                     let screenLocation = value.location
                                     
                                     // 2. 現在のパン（オフセット）とズーム（スケール）を考慮して、キャンバス上のワールド座標に変換
-                                    let worldX = (screenLocation.x - canvasOffset.width) / canvasScale
-                                    let worldY = (screenLocation.y - canvasOffset.height) / canvasScale
+                                    // ★ CGPoint型（canvasOffset.x / y）に対応するように修正
+                                    let worldX = (screenLocation.x - canvasOffset.width) / CGFloat(canvasScale)
+                                    let worldY = (screenLocation.y - canvasOffset.height) / CGFloat(canvasScale)
                                     
                                     // 3. その位置に新規作成して編集画面を開く
                                     addNewElementAt(CGPoint(x: worldX, y: worldY))
@@ -135,8 +154,23 @@ struct ContentView: View {
                             )
                         }
                     }
-                    .scaleEffect(canvasScale)
+                    .scaleEffect(CGFloat(canvasScale))
                     .offset(canvasOffset)
+                    
+                    
+                    
+                }
+                // --- 3. 再起動時の復元 ＆ 変更時の自動保存 ---
+                .onAppear {
+                    // レイアウト確定後に復元し、下にずれる現象を防ぐ
+//                    DispatchQueue.main.async {
+                        canvasOffset = CGSize(width: canvasOffsetX, height: canvasOffsetY)
+//                    }
+                }
+                .onChange(of: canvasOffset) { _, newValue in
+                    // 動かすたびに自動でAppStorageに保存
+                    canvasOffsetX = newValue.width
+                    canvasOffsetY = newValue.height
                 }
                 .overlay(alignment: .bottom) {
                     // 3. 選択時のみ画面下端に現れるメニューバー
@@ -300,19 +334,32 @@ struct ContentView: View {
     private var canvasPanGesture: some Gesture {
         DragGesture()
             .onChanged { value in
-                canvasOffset = CGSize(
-                    width: lastCanvasOffset.width + value.translation.width,
-                    height: lastCanvasOffset.height + value.translation.height
-                )
+                // 2. ドラッグが始まった瞬間の（現在の）canvasOffsetを基準として保持する
+                if baseOffset == nil {
+                    baseOffset = canvasOffset
+                }
+                
+                // 3. 保持した基準位置に、今回のドラッグ移動量を足し合わせる
+                let currentBase = baseOffset ?? canvasOffset
+                let newWidth = currentBase.width + value.translation.width
+                let newHeight = currentBase.height + value.translation.height
+                
+                canvasOffset = CGSize(width: newWidth, height: newHeight)
             }
             .onEnded { _ in
-                lastCanvasOffset = canvasOffset
+                // 4. 指を離したら基準をリセット
+                baseOffset = nil
             }
     }
-    
     private var canvasZoomGesture: some Gesture {
         MagnifyGesture()
             .onChanged { value in
+                // ★ もし lastCanvasScale がアプリ起動時の初期値のままなら、現在の canvasScale で同期させる
+                // （あるいはピンチ開始の1回目に現在の倍率をベースとして保持する形にします）
+                if lastCanvasScale == 1.0 && canvasScale != 1.0 {
+                    lastCanvasScale = canvasScale
+                }
+                
                 let newScale = lastCanvasScale * value.magnification
                 canvasScale = min(max(newScale, minScale), maxScale)
             }
@@ -336,7 +383,7 @@ struct ContentView: View {
         
         let newElement = ElementItem(
             title: "",
-            impact: 60,
+            impact: 100,
             isPleasure: true,
             isDream: false,
             stop: false,

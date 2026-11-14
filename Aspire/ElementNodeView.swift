@@ -23,12 +23,16 @@ struct ElementNodeView: View {
         self.onDoubleTap = onDoubleTap
     }
     
+    // ★ 変更1: positionを直接書き換えず、一時的な移動量（offset）だけを持つ
+    @State private var dragOffset: CGSize = .zero
+    @State private var baseImpact: Int = 50
+    
     @State private var dragStartPosition: CGPoint?
     // ダブルタップした瞬間に光らせるための状態
     @State private var isSelectedEffect = false
     
     // ピンチ操作用の一時変数
-    @State private var baseImpact: Int = 60
+//    @State private var baseImpact: Int = 50
     
 //    private var themeColor: Color {
 //        element.isPleasure ? Color("Pleasuse Color") : Color("Unpleasant Color")
@@ -169,6 +173,28 @@ struct ElementNodeView: View {
                 .animation(.easeInOut(duration: 0.15), value: isSelectedEffect)
                 .allowsHitTesting(false)
             
+            // ==========================================
+            // ★ 円の内部の下側に表示する円形サムネイル
+            // ==========================================
+            if let imageData = element.imageData,
+               let uiImage = UIImage(data: imageData) {
+                // 円のサイズに応じてサムネイルも少し可変にする（最小28px 〜 最大38px）
+                let thumbSize: CGFloat = min(max(element.diameter * 0.3, 28), 100)
+                
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: thumbSize, height: thumbSize)
+                    .clipShape(Circle())
+//                    .overlay(
+//                        Circle().stroke(nodeBackgroundColor, lineWidth: 2) // ノードと同色の枠線
+//                    )
+//                    .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
+                // 円の内部の下側に収まるようにオフセット計算
+                    .offset(y: (element.diameter / 2) - (thumbSize / 2) - 20)
+                    .allowsHitTesting(false)
+            }
+            
             
             
             // stopがtrueのとき、太めの点線2本が交差した「×」を表示
@@ -199,8 +225,11 @@ struct ElementNodeView: View {
             }
         }
         .frame(width: element.diameter, height: element.diameter)
+        
         .position(element.position)
-        // ★ シングルタップとダブルタップを競合させずに両立させるジェスチャー
+        
+        // ★ 変更3: ドラッグ中はこの offset だけで見た目だけを高速移動させる
+        .offset(dragOffset)
         .gesture(
             TapGesture(count: 2)
                 .onEnded {
@@ -237,7 +266,7 @@ struct ElementNodeView: View {
                     if baseImpact == 0 { baseImpact = element.impact }
                     let newImpact = Double(baseImpact) * value.magnification
                     // 5〜200の範囲で、5刻みに丸める
-                    let clamped = min(max(Int(newImpact), 5), 500)
+                    let clamped = min(max(Int(newImpact), 50), 500)
                     element.impact = (clamped / 5) * 5
                 }
                 .onEnded { _ in
@@ -245,23 +274,23 @@ struct ElementNodeView: View {
                 }
         )
         // ドラッグで移動
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    if dragStartPosition == nil {
-                        dragStartPosition = element.position
-                    }
-                    if let start = dragStartPosition {
-                        element.position = CGPoint(
-                            x: start.x + value.translation.width,
-                            y: start.y + value.translation.height
-                        )
-                    }
-                }
-                .onEnded { _ in
-                    dragStartPosition = nil
-                }
-        )
+//        .gesture(
+//            DragGesture()
+//                .onChanged { value in
+//                    if dragStartPosition == nil {
+//                        dragStartPosition = element.position
+//                    }
+//                    if let start = dragStartPosition {
+//                        element.position = CGPoint(
+//                            x: start.x + value.translation.width,
+//                            y: start.y + value.translation.height
+//                        )
+//                    }
+//                }
+//                .onEnded { _ in
+//                    dragStartPosition = nil
+//                }
+//        )
     }
     
 }
