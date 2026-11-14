@@ -34,8 +34,10 @@ struct ContentView: View {
 //    }
     
     // 1. ドラッグ開始時の基準位置を保持するStateを追加
+    @State private var baseScale: Double? = nil
     @State private var baseOffset: CGSize? = nil
-        
+    @State private var zoomStartLocation: CGPoint = .zero // ★ 追加：ピンチ開始時の中心位置
+    
     // 指定した座標に新しい要素を作成してすぐ詳細を開く
     private func addNewElementAt(_ position: CGPoint) {
         let generator = UIImpactFeedbackGenerator(style: .medium)
@@ -68,6 +70,12 @@ struct ContentView: View {
     }
     
 
+    // 長押し判定用のタスクを保持するState
+    @State private var longPressTask: Task<Void, Never>? = nil
+    // ★ 修正：画面座標ではなく、キャンバス上のワールド座標を保持する
+    @State private var longPressWorldLocation: CGPoint? = nil
+    // ★ 追加：インジケーターのアニメーション用スケール
+    @State private var isPressing: Bool = false
     
     
     var body: some View {
@@ -105,21 +113,78 @@ struct ContentView: View {
                                     selectedElement = nil
                                 }
                         )
-                        .simultaneousGesture(
-                            SpatialTapGesture(count: 2)
-                                .onEnded { value in
-                                    // 1. タップされた画面上の位置
-                                    let screenLocation = value.location
-                                    
-                                    // 2. 現在のパン（オフセット）とズーム（スケール）を考慮して、キャンバス上のワールド座標に変換
-                                    // ★ CGPoint型（canvasOffset.x / y）に対応するように修正
-                                    let worldX = (screenLocation.x - canvasOffset.width) / CGFloat(canvasScale)
-                                    let worldY = (screenLocation.y - canvasOffset.height) / CGFloat(canvasScale)
-                                    
-                                    // 3. その位置に新規作成して編集画面を開く
-                                    addNewElementAt(CGPoint(x: worldX, y: worldY))
-                                }
-                        )
+                        // ==========================================
+                        // ★ ダブルタップ（count: 2）から「長押し」に変更
+                        // ==========================================
+//                        .simultaneousGesture(
+//                            DragGesture(minimumDistance: 0)
+//                                .onChanged { value in
+//                                    // まだ長押し判定が始まっていない場合、タスクを開始
+//                                    if longPressTask == nil {
+//                                        let startLocation = value.location
+//                                        
+//                                        // ★ タップされた画面上の位置を、現在のオフセットとスケールを考慮してワールド座標に変換
+//                                        let worldX = (startLocation.x - canvasOffset.width) / CGFloat(canvasScale)
+//                                        let worldY = (startLocation.y - canvasOffset.height) / CGFloat(canvasScale)
+//                                        let worldPoint = CGPoint(x: worldX, y: worldY)
+//                                        
+//                                        longPressWorldLocation = worldPoint
+//                                        
+//                                        isPressing = false
+//                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+//                                            isPressing = true
+//                                        }
+//                                        longPressTask = Task {
+//                                            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒の長押し
+//                                            if !Task.isCancelled {
+//                                                await MainActor.run {
+//                                                    let generator = UIImpactFeedbackGenerator(style: .medium)
+//                                                    generator.impactOccurred()
+//                                                    
+//                                                    // タップされた画面上の位置をワールド座標に変換
+//                                                    let worldX = (startLocation.x - canvasOffset.width) / CGFloat(canvasScale)
+//                                                    let worldY = (startLocation.y - canvasOffset.height) / CGFloat(canvasScale)
+//                                                    
+//                                                    // 新規ノード作成
+//                                                    addNewElementAt(CGPoint(x: worldX, y: worldY))
+//                                                }
+//                                            }
+//                                        }
+//                                    } else {
+//                                        // 指を大きく動かした（パンしようとした）場合は長押しをキャンセル
+//                                        // （※必要に応じて感度を調整できます）
+//                                        let translation = value.translation
+//                                        if hypot(translation.width, translation.height) > 10 {
+//                                            longPressTask?.cancel()
+//                                            longPressTask = nil
+//                                        }
+//                                    }
+//                                }
+//                                .onEnded { _ in
+//                                    // 指を離したら長押しタスクをキャンセル（短くタップした場合は発火しない）
+//                                    longPressTask?.cancel()
+//                                    longPressTask = nil
+//                                }
+//                        )
+                    
+                    
+                    
+                    
+//                        .simultaneousGesture(
+//                            SpatialTapGesture(count: 2)
+//                                .onEnded { value in
+//                                    // 1. タップされた画面上の位置
+//                                    let screenLocation = value.location
+//                                    
+//                                    // 2. 現在のパン（オフセット）とズーム（スケール）を考慮して、キャンバス上のワールド座標に変換
+//                                    // ★ CGPoint型（canvasOffset.x / y）に対応するように修正
+//                                    let worldX = (screenLocation.x - canvasOffset.width) / CGFloat(canvasScale)
+//                                    let worldY = (screenLocation.y - canvasOffset.height) / CGFloat(canvasScale)
+//                                    
+//                                    // 3. その位置に新規作成して編集画面を開く
+//                                    addNewElementAt(CGPoint(x: worldX, y: worldY))
+//                                }
+//                        )
                     
                     ZStack {
                         // 矢印レイヤー
@@ -154,7 +219,7 @@ struct ContentView: View {
                             )
                         }
                     }
-                    .scaleEffect(CGFloat(canvasScale))
+                    .scaleEffect(CGFloat(canvasScale), anchor: .topLeading)
                     .offset(canvasOffset)
                     
                     
@@ -351,20 +416,39 @@ struct ContentView: View {
                 baseOffset = nil
             }
     }
+    
     private var canvasZoomGesture: some Gesture {
         MagnifyGesture()
             .onChanged { value in
-                // ★ もし lastCanvasScale がアプリ起動時の初期値のままなら、現在の canvasScale で同期させる
-                // （あるいはピンチ開始の1回目に現在の倍率をベースとして保持する形にします）
-                if lastCanvasScale == 1.0 && canvasScale != 1.0 {
-                    lastCanvasScale = canvasScale
+                // 1. ピンチが始まった瞬間の状態を初回の1回だけキャプチャする
+                if baseScale == nil {
+                    baseScale = canvasScale
+                    baseOffset = canvasOffset
+                    zoomStartLocation = value.startLocation // ピンチし始めたときの中心点
                 }
                 
-                let newScale = lastCanvasScale * value.magnification
-                canvasScale = min(max(newScale, minScale), maxScale)
+                let startScale = baseScale ?? canvasScale
+                let startOffset = baseOffset ?? canvasOffset
+                
+                // 2. 新しいスケールを計算（範囲制限）
+                let newScale = min(max(startScale * value.magnification, minScale), maxScale)
+                
+                // 3. 【重要】ピンチ開始位置（zoomStartLocation）を基点として、
+                //    拡大・縮小してもその場所がズレないように新しいオフセットを逆算する
+                let s = zoomStartLocation
+                let scaleRatio = newScale / startScale
+                
+                let newWidth = s.x - (s.x - startOffset.width) * scaleRatio
+                let newHeight = s.y - (s.y - startOffset.height) * scaleRatio
+                
+                // 4. スケールとオフセットを同時に更新
+                canvasScale = newScale
+                canvasOffset = CGSize(width: newWidth, height: newHeight)
             }
             .onEnded { _ in
-                lastCanvasScale = canvasScale
+                // 5. 指を離したらリセット
+                baseScale = nil
+                baseOffset = nil
             }
     }
     

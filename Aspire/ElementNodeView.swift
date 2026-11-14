@@ -145,13 +145,25 @@ struct ElementNodeView: View {
             
             // タイトル
             Text(element.title)
-//                .font(.system(size: element.radius * 0.2, weight: .semibold))
-                .font(.system(size: 30, weight: .semibold))
+            // ★ 円の大きさに応じてフォントサイズを可変にする（最小12ptを確保）
+                .font(.system(size: max(element.diameter * 0.15, 12), weight: .semibold))
                 .foregroundStyle(nodeBackgroundColor)
                 .multilineTextAlignment(.center)
-                .lineLimit(nil)
+                .lineLimit(nil) // 行数制限なし
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(width: element.diameter * 0.75) // ★ 円の丸みに沿って綺麗に折り返すための幅制限
                 .padding(element.isDream ? 16 : 12)
+            
+//            Text(element.title)
+//                .font(.system(size: 40, weight: .semibold))
+//                .foregroundStyle(nodeBackgroundColor)
+//                .multilineTextAlignment(.center)
+//                .lineLimit(nil)
+//                .fixedSize(horizontal: false, vertical: true)
+//                .padding(element.isDream ? 16 : 12)
+//            
+//            
+            
             
             // 【追加】円の上部に impact の値を表示
             Text("\(element.impact)")
@@ -185,7 +197,9 @@ struct ElementNodeView: View {
                     .resizable()
                     .scaledToFill()
                     .frame(width: thumbSize, height: thumbSize)
-                    .clipShape(Circle())
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .opacity(0.9)
+//                    .clipShape(Circle())
 //                    .overlay(
 //                        Circle().stroke(nodeBackgroundColor, lineWidth: 2) // ノードと同色の枠線
 //                    )
@@ -246,6 +260,8 @@ struct ElementNodeView: View {
                         }
                 )
         )
+        
+        
         // ダブルタップで詳細画面表示 ＋ 選択エフェクト
 //        .onTapGesture(count: 2) {
 //            // 選択エフェクトをパッと光らせてからアクションを実行
@@ -260,37 +276,37 @@ struct ElementNodeView: View {
 //            }
 //        }
         // ★ ピンチジェスチャーで impact（サイズ）を変更
-        .gesture(
-            MagnifyGesture()
-                .onChanged { value in
-                    if baseImpact == 0 { baseImpact = element.impact }
-                    let newImpact = Double(baseImpact) * value.magnification
-                    // 5〜200の範囲で、5刻みに丸める
-                    let clamped = min(max(Int(newImpact), 50), 500)
-                    element.impact = (clamped / 5) * 5
-                }
-                .onEnded { _ in
-                    baseImpact = 0
-                }
-        )
-        // ドラッグで移動
 //        .gesture(
-//            DragGesture()
+//            MagnifyGesture()
 //                .onChanged { value in
-//                    if dragStartPosition == nil {
-//                        dragStartPosition = element.position
-//                    }
-//                    if let start = dragStartPosition {
-//                        element.position = CGPoint(
-//                            x: start.x + value.translation.width,
-//                            y: start.y + value.translation.height
-//                        )
-//                    }
+//                    if baseImpact == 0 { baseImpact = element.impact }
+//                    let newImpact = Double(baseImpact) * value.magnification
+//                    // 5〜200の範囲で、5刻みに丸める
+//                    let clamped = min(max(Int(newImpact), 50), 500)
+//                    element.impact = (clamped / 5) * 5
 //                }
 //                .onEnded { _ in
-//                    dragStartPosition = nil
+//                    baseImpact = 0
 //                }
 //        )
+        // ドラッグで移動
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    if dragStartPosition == nil {
+                        dragStartPosition = element.position
+                    }
+                    if let start = dragStartPosition {
+                        element.position = CGPoint(
+                            x: start.x + value.translation.width,
+                            y: start.y + value.translation.height
+                        )
+                    }
+                }
+                .onEnded { _ in
+                    dragStartPosition = nil
+                }
+        )
     }
     
 }
