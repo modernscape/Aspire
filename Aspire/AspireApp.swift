@@ -7,9 +7,14 @@
 
 import SwiftUI
 import SwiftData
+import GoogleMobileAds
 
 @main
 struct AspireApp: App {
+    init() {
+        // Google Mobile Ads SDK の初期化
+        MobileAds.shared.start(completionHandler: nil)
+    }
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             ElementItem.self,

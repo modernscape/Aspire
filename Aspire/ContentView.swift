@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import AppTrackingTransparency
+import GoogleMobileAds
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -22,6 +24,15 @@ struct ContentView: View {
     @AppStorage("savedCanvasScale") private var canvasScale: Double = 1.0
     @AppStorage("savedCanvasOffsetX") private var canvasOffsetX: Double = 0.0
     @AppStorage("savedCanvasOffsetY") private var canvasOffsetY: Double = 0.0
+    
+    // ★ 追加：現在キャンバスを操作中（ピンチ・パン中）かどうかのフラグ
+    @State private var isCanvasInteracting: Bool = false
+    
+    // 初回起動が終わったかどうかを永続化（falseなら初回）
+    @AppStorage("hasSeenWelcome") private var hasSeenWelcome: Bool = false
+    
+    // ようこそ画面を表示しているかどうかのフラグ
+    @State private var isShowingWelcome: Bool = false
     
 //    private var canvasOffset: Binding<CGPoint> {
 //        Binding(
@@ -82,23 +93,7 @@ struct ContentView: View {
         NavigationStack {
             GeometryReader { geometry in
                 
-                // ▼ ここにそのまま記述します
-//                let doubleTap = SpatialTapGesture(count: 2)
-//                    .onEnded { value in
-//                        let screenLocation = value.location
-//                        let worldX = (screenLocation.x - canvasOffset.width) / canvasScale
-//                        let worldY = (screenLocation.y - canvasOffset.height) / canvasScale
-//                        
-//                        addNewElementAt(CGPoint(x: worldX, y: worldY))
-//                    }
-//                
-//                let singleTap = SpatialTapGesture(count: 1)
-//                    .onEnded { value in
-//                        selectedElement = nil
-//                    }
-//                
-//                let tapGesture = doubleTap.exclusively(before: singleTap)
-                // ▲ ここまで
+           
                 
                 ZStack {
                     Color(.systemGroupedBackground)
@@ -113,79 +108,7 @@ struct ContentView: View {
                                     selectedElement = nil
                                 }
                         )
-                        // ==========================================
-                        // ★ ダブルタップ（count: 2）から「長押し」に変更
-                        // ==========================================
-//                        .simultaneousGesture(
-//                            DragGesture(minimumDistance: 0)
-//                                .onChanged { value in
-//                                    // まだ長押し判定が始まっていない場合、タスクを開始
-//                                    if longPressTask == nil {
-//                                        let startLocation = value.location
-//                                        
-//                                        // ★ タップされた画面上の位置を、現在のオフセットとスケールを考慮してワールド座標に変換
-//                                        let worldX = (startLocation.x - canvasOffset.width) / CGFloat(canvasScale)
-//                                        let worldY = (startLocation.y - canvasOffset.height) / CGFloat(canvasScale)
-//                                        let worldPoint = CGPoint(x: worldX, y: worldY)
-//                                        
-//                                        longPressWorldLocation = worldPoint
-//                                        
-//                                        isPressing = false
-//                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-//                                            isPressing = true
-//                                        }
-//                                        longPressTask = Task {
-//                                            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒の長押し
-//                                            if !Task.isCancelled {
-//                                                await MainActor.run {
-//                                                    let generator = UIImpactFeedbackGenerator(style: .medium)
-//                                                    generator.impactOccurred()
-//                                                    
-//                                                    // タップされた画面上の位置をワールド座標に変換
-//                                                    let worldX = (startLocation.x - canvasOffset.width) / CGFloat(canvasScale)
-//                                                    let worldY = (startLocation.y - canvasOffset.height) / CGFloat(canvasScale)
-//                                                    
-//                                                    // 新規ノード作成
-//                                                    addNewElementAt(CGPoint(x: worldX, y: worldY))
-//                                                }
-//                                            }
-//                                        }
-//                                    } else {
-//                                        // 指を大きく動かした（パンしようとした）場合は長押しをキャンセル
-//                                        // （※必要に応じて感度を調整できます）
-//                                        let translation = value.translation
-//                                        if hypot(translation.width, translation.height) > 10 {
-//                                            longPressTask?.cancel()
-//                                            longPressTask = nil
-//                                        }
-//                                    }
-//                                }
-//                                .onEnded { _ in
-//                                    // 指を離したら長押しタスクをキャンセル（短くタップした場合は発火しない）
-//                                    longPressTask?.cancel()
-//                                    longPressTask = nil
-//                                }
-//                        )
-                    
-                    
-                    
-                    
-//                        .simultaneousGesture(
-//                            SpatialTapGesture(count: 2)
-//                                .onEnded { value in
-//                                    // 1. タップされた画面上の位置
-//                                    let screenLocation = value.location
-//                                    
-//                                    // 2. 現在のパン（オフセット）とズーム（スケール）を考慮して、キャンバス上のワールド座標に変換
-//                                    // ★ CGPoint型（canvasOffset.x / y）に対応するように修正
-//                                    let worldX = (screenLocation.x - canvasOffset.width) / CGFloat(canvasScale)
-//                                    let worldY = (screenLocation.y - canvasOffset.height) / CGFloat(canvasScale)
-//                                    
-//                                    // 3. その位置に新規作成して編集画面を開く
-//                                    addNewElementAt(CGPoint(x: worldX, y: worldY))
-//                                }
-//                        )
-                    
+            
                     ZStack {
                         // 矢印レイヤー
                         ForEach(elements) { element in
@@ -217,6 +140,8 @@ struct ContentView: View {
                                     editingElement = element
                                 }
                             )
+                            // ★ ここでキャンバス操作中はノードのインタラクションを一時無効化する
+                            .disabled(isCanvasInteracting)
                         }
                     }
                     .scaleEffect(CGFloat(canvasScale), anchor: .topLeading)
@@ -227,9 +152,19 @@ struct ContentView: View {
                 }
                 // --- 3. 再起動時の復元 ＆ 変更時の自動保存 ---
                 .onAppear {
+                    // レイアウト確定後に安全に表示するため async にする
+                    DispatchQueue.main.async {
+                        if !hasSeenWelcome {
+                            isShowingWelcome = true
+                        }
+                        canvasOffset = CGSize(width: canvasOffsetX, height: canvasOffsetY)
+                    }
+                    
+                    
+                    
                     // レイアウト確定後に復元し、下にずれる現象を防ぐ
 //                    DispatchQueue.main.async {
-                        canvasOffset = CGSize(width: canvasOffsetX, height: canvasOffsetY)
+//                        canvasOffset = CGSize(width: canvasOffsetX, height: canvasOffsetY)
 //                    }
                 }
                 .onChange(of: canvasOffset) { _, newValue in
@@ -301,14 +236,23 @@ struct ContentView: View {
                 .simultaneousGesture(canvasZoomGesture)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            withAnimation(.spring(duration: 0.4)) {
-                                fitToAllElements(in: geometry.size)
+                        HStack(spacing: 12) {
+                            Button {
+                                withAnimation(.spring(duration: 0.4)) {
+                                    fitToAllElements(in: geometry.size)
+                                }
+                            } label: {
+                                Image(systemName: "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left")
                             }
-                        } label: {
-                            Image(systemName: "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left")
+                            .disabled(elements.isEmpty)
+                            
+                            // 2. 新規追加：いつでもチュートリアルを開ける「？」ボタン
+                            Button {
+                                isShowingWelcome = true
+                            } label: {
+                                Image(systemName: "document.circle.fill")
+                            }
                         }
-                        .disabled(elements.isEmpty)
                     }
                     
                     ToolbarItem(placement: .topBarTrailing) {
@@ -337,9 +281,114 @@ struct ContentView: View {
                 
                 }
                 
+                // --- ★ 追加：画面左上のヘルパー（チュートリアル）ボタン ---
+//                VStack {
+//                    HStack {
+//                        Button(action: {
+//                            isShowingWelcome = true
+//                        }) {
+//                            Image(systemName: "questionmark.circle.fill")
+//                                .font(.system(size: 26))
+//                                .foregroundStyle(.primary)
+//                                .background(.ultraThinMaterial, in: Circle())
+//                                .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+//                        }
+//                        .buttonStyle(.plain)
+//                        .padding(.leading, 16)
+//                        .padding(.top, 12)
+//                        
+//                        Spacer()
+//                    }
+//                    Spacer()
+//                }
+                
+                // --- ★ 追加：ようこそ（チュートリアル）画面のオーバーレイ ---
+                if isShowingWelcome {
+                    ZStack {
+
+                        // または、すりガラスにしたい場合はこちら：
+                        Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
+                        
+//                        Color.black.opacity(0.4) // 0.3 〜 0.5 でお好みの暗さに調整
+//                            .ignoresSafeArea()
+                    
+                        
+                        // 背景のチュートリアル画像
+                        // ※ Assets に登録した画像名（例: "TutorialBackground"）に書き換えてください
+                        Image("Tutorial Image")
+                            .resizable()
+                            .scaledToFit() // 画面に綺麗に収まるように変更すると見やすくなります
+//                            .padding(40) // 画面端に少し余裕を持たせる
+//                            .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 10)
+                        
+                        VStack(spacing: 20) {
+                            Text("「希求」アプリへようこそ！")
+                                .font(.title2)
+                                .bold()
+                                .foregroundColor(.white)
+                                .shadow(radius: 2)
+                            
+                            Text("画面をタップして閉じる")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.9))
+                                .shadow(radius: 2)
+                        }
+                        
+                        // お好みで「タップして閉じる」などの案内テキストを添える場合
+//                        VStack {
+//                            Spacer()
+//                            Text("ようこそ 希求 アプリへ")
+//                            
+//                            Text("画面をタップしてはじめる")
+//                                .font(.subheadline)
+//                                .fontWeight(.medium)
+//                                .foregroundStyle(.white)
+//                                .padding(.horizontal, 20)
+//                                .padding(.vertical, 10)
+//                                .background(.black.opacity(0.6), in: Capsule())
+//                                .padding(.bottom, 60)
+//                            Spacer()
+//                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+//                    .background(Color(.systemBackground)) // 画像読み込み前の仮背景
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle()) // 画面全体をタップ可能にする
+                    .onTapGesture {
+                        // タップされたら非表示にし、初回フラグを true にする
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            hasSeenWelcome = true
+                            isShowingWelcome = false
+                        }
+                    }
+                    .transition(.opacity)
+                    .zIndex(999) // 常に一番手前に表示
+                }
+                
+                
+                
+            }
+            .withAdMobBanner()
+            .onAppear {
+                requestTrackingAndInitializeAds()
             }
             .navigationTitle("あなたをつくる要素")
             .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+    
+    private func requestTrackingAndInitializeAds() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            ATTrackingManager.requestTrackingAuthorization { status in
+                
+                // ★ ここに「あなたの実機のテストデバイスID」を登録する
+                // シミュレータの場合は自動でテスト広告になるため追加不要です
+                MobileAds.shared.requestConfiguration.testDeviceIdentifiers = [
+                    "322dcfafac9fe6cac54edd0096dad3eb" // ここにXcodeのコンソールに出る英数字のIDを入れる
+                ]
+                
+                MobileAds.shared.start(completionHandler: nil)
+            }
         }
     }
     
@@ -399,6 +448,8 @@ struct ContentView: View {
     private var canvasPanGesture: some Gesture {
         DragGesture()
             .onChanged { value in
+                // ★ 操作中フラグを立てる（指が動いている間）
+                isCanvasInteracting = true
                 // 2. ドラッグが始まった瞬間の（現在の）canvasOffsetを基準として保持する
                 if baseOffset == nil {
                     baseOffset = canvasOffset
@@ -414,12 +465,17 @@ struct ContentView: View {
             .onEnded { _ in
                 // 4. 指を離したら基準をリセット
                 baseOffset = nil
+                // ★ 指を離したらフラグを下ろす
+                isCanvasInteracting = false
             }
     }
     
     private var canvasZoomGesture: some Gesture {
         MagnifyGesture()
             .onChanged { value in
+                // ★ 操作中フラグを立てる
+                isCanvasInteracting = true
+                
                 // 1. ピンチが始まった瞬間の状態を初回の1回だけキャプチャする
                 if baseScale == nil {
                     baseScale = canvasScale
@@ -449,6 +505,8 @@ struct ContentView: View {
                 // 5. 指を離したらリセット
                 baseScale = nil
                 baseOffset = nil
+                // ★ 指を離したらフラグを下ろす
+                isCanvasInteracting = false
             }
     }
     
