@@ -7,6 +7,8 @@
 
 import SwiftUI
 import SwiftData
+import CoreImage
+import CoreImage.CIFilterBuiltins
 
 
 struct ElementNodeView: View {
@@ -52,6 +54,64 @@ struct ElementNodeView: View {
             case .end: return .degrees(360)
             }
         }
+    }
+    
+    func removeWhite(from image: UIImage) -> UIImage? {
+        guard let cgImage = image.cgImage else { return nil }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        
+        var pixels = [UInt8](repeating: 0, count: height * bytesPerRow)
+        
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return nil
+        }
+        
+        context.draw(cgImage, in: CGRect(
+            x: 0, y: 0,
+            width: width,
+            height: height
+        ))
+        
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            let r = Float(pixels[i]) / 255
+            let g = Float(pixels[i + 1]) / 255
+            let b = Float(pixels[i + 2]) / 255
+            
+            let white = (r + g + b) / 3
+            
+            let alpha = 1 - white
+            
+            pixels[i + 3] = UInt8(alpha * 255)
+        }
+        
+        guard let outputContext = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ),
+              let result = outputContext.makeImage() else {
+            return nil
+        }
+        
+        return UIImage(cgImage: result, scale: image.scale, orientation: image.imageOrientation)
     }
     
     var body: some View {
@@ -143,6 +203,31 @@ struct ElementNodeView: View {
 //                    .padding(8)
 //            }
             
+            // ==========================================
+            // ★ 円の内部の下側に表示する円形サムネイル
+            // ==========================================
+            if let imageData = element.imageData,
+               let uiImage = UIImage(data: imageData) {
+                // 円のサイズに応じてサムネイルも少し可変にする（最小28px 〜 最大38px）
+                let thumbSize: CGFloat = min(max(element.diameter * 0.3, 28), 100)
+                
+//                if let filteredImage = removeWhite(from: uiImage) {
+//
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: thumbSize, height: thumbSize)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .opacity(0.9)
+                    // 円の内部の下側に収まるようにオフセット計算
+                        .offset(y: (element.diameter / 2) - (thumbSize / 2) - 15)
+                        .allowsHitTesting(false)
+//                        .accessibility(hidden: true)
+                
+//                }
+           
+            }
+            
             // タイトル
             Text(element.title)
             // ★ 円の大きさに応じてフォントサイズを可変にする（最小12ptを確保）
@@ -153,6 +238,10 @@ struct ElementNodeView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(width: element.diameter * 0.75) // ★ 円の丸みに沿って綺麗に折り返すための幅制限
                 .padding(element.isDream ? 16 : 12)
+//                .shadow(color: .white.opacity(0.95), radius: 3, x: 0, y: 0)
+                .shadow(color: .white.opacity(0.9), radius: 3)
+                .shadow(color: .white.opacity(0.5), radius: 8)
+                .shadow(color: .white.opacity(0.3), radius: 15)
             
 //            Text(element.title)
 //                .font(.system(size: 40, weight: .semibold))
@@ -185,29 +274,7 @@ struct ElementNodeView: View {
                 .animation(.easeInOut(duration: 0.15), value: isSelectedEffect)
                 .allowsHitTesting(false)
             
-            // ==========================================
-            // ★ 円の内部の下側に表示する円形サムネイル
-            // ==========================================
-            if let imageData = element.imageData,
-               let uiImage = UIImage(data: imageData) {
-                // 円のサイズに応じてサムネイルも少し可変にする（最小28px 〜 最大38px）
-                let thumbSize: CGFloat = min(max(element.diameter * 0.3, 28), 100)
-                
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: thumbSize, height: thumbSize)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .opacity(0.9)
-//                    .clipShape(Circle())
-//                    .overlay(
-//                        Circle().stroke(nodeBackgroundColor, lineWidth: 2) // ノードと同色の枠線
-//                    )
-//                    .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
-                // 円の内部の下側に収まるようにオフセット計算
-                    .offset(y: (element.diameter / 2) - (thumbSize / 2) - 20)
-                    .allowsHitTesting(false)
-            }
+  
             
             
             

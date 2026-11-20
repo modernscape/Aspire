@@ -11,12 +11,6 @@ struct AdMobBannerView: UIViewRepresentable {
 //        本番 
         banner.adUnitID = "ca-app-pub-1511850082670293/3626877980"
         
-        // 現在のウィンドウシーンからルートビューコントローラーを取得して設定
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            banner.rootViewController = rootViewController
-        }
-        
         // GADRequest -> Request に変更
         banner.load(Request())
         return banner

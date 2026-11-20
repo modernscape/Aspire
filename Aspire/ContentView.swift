@@ -149,23 +149,20 @@ struct ContentView: View {
                     
                     
                     
-                }
+                }//
+                .withAdMobBanner()
                 // --- 3. 再起動時の復元 ＆ 変更時の自動保存 ---
                 .onAppear {
-                    // レイアウト確定後に安全に表示するため async にする
+                    // 1. レイアウト確定後にウェルカム画面とキャンバス初期位置を設定
                     DispatchQueue.main.async {
                         if !hasSeenWelcome {
                             isShowingWelcome = true
                         }
                         canvasOffset = CGSize(width: canvasOffsetX, height: canvasOffsetY)
                     }
-                    
-                    
-                    
-                    // レイアウト確定後に復元し、下にずれる現象を防ぐ
-//                    DispatchQueue.main.async {
-//                        canvasOffset = CGSize(width: canvasOffsetX, height: canvasOffsetY)
-//                    }
+                }
+                .onAppear {
+                    requestTrackingAndInitializeAds()
                 }
                 .onChange(of: canvasOffset) { _, newValue in
                     // 動かすたびに自動でAppStorageに保存
@@ -367,27 +364,38 @@ struct ContentView: View {
                 
                 
                 
-            }
-            .withAdMobBanner()
-            .onAppear {
-                requestTrackingAndInitializeAds()
-            }
+            } //
+
             .navigationTitle("あなたをつくる要素")
             .navigationBarTitleDisplayMode(.inline)
         }
     }
     
+//    private func requestTrackingAndInitializeAds() {
+//        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+//            ATTrackingManager.requestTrackingAuthorization { status in
+//                
+//                // ★ ここに「あなたの実機のテストデバイスID」を登録する
+//                // シミュレータの場合は自動でテスト広告になるため追加不要です
+//                MobileAds.shared.requestConfiguration.testDeviceIdentifiers = [
+//                    "322dcfafac9fe6cac54edd0096dad3eb" // ここにXcodeのコンソールに出る英数字のIDを入れる
+//                ]
+//                
+//                MobileAds.shared.start(completionHandler: nil)
+//            }
+//        }
+//    }
+    
     private func requestTrackingAndInitializeAds() {
+        MobileAds.shared.requestConfiguration.testDeviceIdentifiers = [
+            "322dcfafac9fe6cac54edd0096dad3eb"
+        ]
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            ATTrackingManager.requestTrackingAuthorization { status in
-                
-                // ★ ここに「あなたの実機のテストデバイスID」を登録する
-                // シミュレータの場合は自動でテスト広告になるため追加不要です
-                MobileAds.shared.requestConfiguration.testDeviceIdentifiers = [
-                    "322dcfafac9fe6cac54edd0096dad3eb" // ここにXcodeのコンソールに出る英数字のIDを入れる
-                ]
-                
-                MobileAds.shared.start(completionHandler: nil)
+            ATTrackingManager.requestTrackingAuthorization { _ in
+                DispatchQueue.main.async {
+                    MobileAds.shared.start(completionHandler: nil)
+                }
             }
         }
     }
